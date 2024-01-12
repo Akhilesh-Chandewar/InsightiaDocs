@@ -1,4 +1,4 @@
-import { Pinecone, PineconeRecord, RecordMetadata } from "@pinecone-database/pinecone";
+import { Pinecone, PineconeRecord } from "@pinecone-database/pinecone";
 import { downloadFromFirebase } from "./firebase-server";
 import { CSVLoader } from "langchain/document_loaders/fs/csv";
 import { convertToAscii } from "./utils";
@@ -31,9 +31,8 @@ export const truncateStringByBytes = (str: string, bytes: number) => {
 
 async function embedDocument(doc: Document) {
     try {
-        const text = doc.pageContent.split(":")[1]
-        console.log("embedding document", text);
-        const embeddings = await getEmbeddings(text);
+        const embeddings = await getEmbeddings(doc.pageContent);
+        console.log(embeddings)
         const hash = md5(doc.pageContent);
         return {
             id: hash,
@@ -41,7 +40,7 @@ async function embedDocument(doc: Document) {
             metadata: {
                 text: doc.metadata.text,
             }
-        } as unknown as PineconeRecord<RecordMetadata>[]
+        } as PineconeRecord;
     } catch (error) {
         console.log("error embedding document", error);
         throw error;
@@ -74,7 +73,7 @@ export async function loadFirebaseIntoPinecone(file_key: string) {
     const loader = new CSVLoader(file_name);
     const rows = (await loader.load()) as CSVdata[]
     const documents = await Promise.all(rows.map(prepareDocument));
-    const vectors = await embedDocument(documents[0][0]);
+    const vectors = await Promise.all(documents.flat().map(embedDocument));
     const client = await getPineconeClient();
     const pineconeIndex = await client.index("insightiadocs");
     const namespace = pineconeIndex.namespace(convertToAscii(file_key));

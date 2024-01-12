@@ -12,39 +12,39 @@ import { Message } from "ai";
 type Props = { chatId: number };
 
 const ChatComponents = ({ chatId }: Props) => {
-    const { data, isLoading } = useQuery({
-        queryKey: ["chat", chatId],
-        queryFn: async () => {
-          const response = await axios.post<Message[]>("/api/get-messages", {
-            chatId,
-          });
-          return response.data;
-        },
+  const { data, isLoading } = useQuery({
+    queryKey: ["chat", chatId],
+    queryFn: async () => {
+      const response = await axios.post<Message[]>("/api/get-messages", {
+        chatId,
       });
-    
-      const { input, handleInputChange, handleSubmit, messages } = useChat({
-        api: "/api/chat",
-        body: {
-          chatId,
-        },
-        initialMessages: data || [],
+      return response.data;
+    },
+  });
+
+  const { input, handleInputChange, handleSubmit, messages } = useChat({
+    api: "/api/chat",
+    body: {
+      chatId,
+    },
+    initialMessages: data || [],
+  });
+  React.useEffect(() => {
+    const messageContainer = document.getElementById("message-container");
+    if (messageContainer) {
+      messageContainer.scrollTo({
+        top: messageContainer.scrollHeight,
+        behavior: "smooth",
       });
-      React.useEffect(() => {
-        const messageContainer = document.getElementById("message-container");
-        if (messageContainer) {
-          messageContainer.scrollTo({
-            top: messageContainer.scrollHeight,
-            behavior: "smooth",
-          });
-        }
-      }, [messages]);
-    return (
-        <div
-      className="relative max-h-screen overflow-scroll"
+    }
+  }, [messages]);
+  return (
+    <div
+      className="relative min-h-screen overflow-scroll"
       id="message-container"
     >
       {/* header */}
-      <div className="sticky top-0 inset-x-0 p-2 bg-white h-fit">
+      <div className="sticky top-0 inset-x-0 p-2 h-fit">
         <h3 className="text-xl font-bold">Chat</h3>
       </div>
 
@@ -53,7 +53,7 @@ const ChatComponents = ({ chatId }: Props) => {
 
       <form
         onSubmit={handleSubmit}
-        className="sticky bottom-0 inset-x-0 px-2 py-4 bg-white"
+        className="sticky bottom-0 inset-x-0 px-2 py-4"
       >
         <div className="flex">
           <Input
@@ -68,7 +68,7 @@ const ChatComponents = ({ chatId }: Props) => {
         </div>
       </form>
     </div>
-    )
+  )
 }
 
 export default ChatComponents

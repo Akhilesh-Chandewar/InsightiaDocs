@@ -1,15 +1,17 @@
-import { db } from "@/lib/db";
-import { messages } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
+"use client";
+import React from "react";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
-export const runtime = "edge";
-
-export const POST = async (req: Request) => {
-  const { chatId } = await req.json();
-  const _messages = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.chatId, chatId));
-  return NextResponse.json(_messages);
+type Props = {
+  children: React.ReactNode;
 };
+
+const queryClient = new QueryClient();
+
+const Providers = ({ children }: Props) => {
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
+
+export default Providers;

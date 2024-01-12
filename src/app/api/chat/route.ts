@@ -1,5 +1,5 @@
 import { HfInference } from '@huggingface/inference'
-import { HuggingFaceStream, StreamingTextResponse } from 'ai';
+import { HuggingFaceStream, Message, StreamingTextResponse } from 'ai';
 import { getContext } from "@/lib/context";
 import { db } from "@/lib/db";
 import { chats, messages as _messages } from "@/lib/db/schema";
@@ -11,8 +11,8 @@ const inference = new HfInference(process.env.HUGGINGFACEHUB_API_TOKEN)
 export const runtime = 'edge';
 
 export async function POST(req: Request) {
-    try{
-        const { messages, chatId } = await req.json();
+  try{
+    const { messages, chatId } = await req.json();
     const _chats = await db.select().from(chats).where(eq(chats.id, chatId));
     if (_chats.length != 1) {
       return NextResponse.json({ error: "chat not found" }, { status: 404 });
@@ -20,9 +20,8 @@ export async function POST(req: Request) {
     const fileKey = _chats[0].fileKey;
     const lastMessage = messages[messages.length - 1];
     const context = await getContext(lastMessage.content, fileKey);
-
     const prompt = {
-      role: "system",
+      role: "user",
       content: `AI assistant is a brand new, powerful, human-like artificial intelligence.
       The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness.
       AI is a well-behaved and well-mannered individual.
@@ -38,40 +37,26 @@ export async function POST(req: Request) {
       AI assistant will not invent anything that is not drawn directly from the context.
       `,
     };
-
     const response = inference.textGenerationStream({
-        model: 'OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5',
-        inputs: experimental_buildOpenAssistantPrompt(messages),
-        parameters: {
-          max_new_tokens: 200,
-          // @ts-ignore (this is a valid parameter specifically in OpenAssistant models)
-          typical_p: 0.2,
-          repetition_penalty: 1,
-          truncate: 1000,
-          return_full_text: false,
-        },
-      });
-     
-      const stream = HuggingFaceStream(response,{
-        onStart: async () => {
-            // save user message into db
-            await db.insert(_messages).values({
-              chatId,
-              content: lastMessage.content,
-              role: "user",
-            });
-          },
-          onCompletion: async (completion) => {
-            // save ai message into db
-            await db.insert(_messages).values({
-              chatId,
-              content: completion,
-              role: "system",
-            });
-          },
-        });
-     
-      return new StreamingTextResponse(stream);
-    }
-     catch(err){}
+      model: 'OpenAssistant/oasst-sft-4-pythia-12b-epoch-3.5',
+      inputs: experimental_buildOpenAssistantPrompt([prompt, ...messages.filter((message: Message) => message.role === "user")]),
+      parameters: {
+        max_new_tokens: 200,
+        // @ts-ignore (this is a valid parameter specifically in OpenAssistant models)
+        typical_p: 0.2,
+        repetition_penalty: 1,
+        truncate: 1000,
+        return_full_text: false,
+      },
+    });
+    console.log(response)
+    // Convert the response into a friendly text-stream
+    const stream = HuggingFaceStream(response);
+    
+    // Respond with the stream
+    return new StreamingTextResponse(stream);
+  }catch (err) {
+    console.error(err);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+   }
 }
